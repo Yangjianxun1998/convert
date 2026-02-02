@@ -6,7 +6,8 @@
 
 - 🎯 使用FFmpeg将任何视频格式转换为MP4
 - 🔄 通过WebSocket提供实时进度更新
-- 📦 命令行界面，使用方便
+- � 支持文件上传功能，带上传进度反馈
+- �📦 命令行界面，使用方便
 - 🐍 Python API，可集成到其他项目中
 - ⚙️ 可自定义转换参数
 - 📊 支持批量转换
@@ -56,6 +57,113 @@ video2mp4-server
 ```
 
 服务器将在 `ws://localhost:8765` 启动
+
+#### 上传功能使用示例
+
+以下是一个使用WebSocket上传文件并获取上传进度的完整示例：
+
+```javascript
+// 示例：使用WebSocket上传文件并获取进度
+const ws = new WebSocket('ws://localhost:8765');
+
+ws.onopen = () => {
+  console.log('WebSocket connected');
+};
+
+ws.onmessage = (event) => {
+  const data = JSON.parse(event.data);
+  console.log('Received message:', data);
+  
+  if (data.type === 'upload_init') {
+    // 上传初始化成功，开始上传文件块
+    uploadFileChunks(data.upload_id);
+  } else if (data.type === 'upload_progress') {
+    // 上传进度更新
+    console.log(`Upload progress: ${data.progress}%`);
+    // 可以在这里更新UI进度条
+  } else if (data.type === 'upload_complete') {
+    // 上传完成，可以开始转换
+    console.log('Upload completed:', data.file_path);
+    // 开始转换视频
+    startConversion(data.file_path);
+  } else if (data.type === 'error') {
+    // 错误处理
+    console.error('Error:', data.message);
+  }
+};
+
+// 初始化上传
+function initUpload(file) {
+  ws.send(JSON.stringify({
+    action: 'upload',
+    file_name: file.name,
+    file_size: file.size
+  }));
+}
+
+// 上传文件块
+async function uploadFileChunks(uploadId) {
+  const file = document.getElementById('fileInput').files[0];
+  const chunkSize = 1024 * 1024; // 1MB chunks
+  let offset = 0;
+  
+  while (offset < file.size) {
+    const chunk = file.slice(offset, offset + chunkSize);
+    const reader = new FileReader();
+    
+    await new Promise((resolve) => {
+      reader.onload = (e) => {
+        const base64Chunk = e.target.result.split(',')[1]; // 移除data URL前缀
+        ws.send(JSON.stringify({
+          action: 'upload_chunk',
+          upload_id: uploadId,
+          chunk: base64Chunk,
+          offset: offset
+        }));
+        offset += chunkSize;
+        resolve();
+      };
+      reader.readAsDataURL(chunk);
+    });
+  }
+  
+  // 上传完成
+  ws.send(JSON.stringify({
+    action: 'upload_complete',
+    upload_id: uploadId
+  }));
+}
+
+// 开始转换
+function startConversion(filePath) {
+  ws.send(JSON.stringify({
+    action: 'convert',
+    input_file: filePath,
+    output_file: filePath.replace(/\.[^/.]+$/, '') + '_converted.mp4',
+    options: {
+      preset: 'medium',
+      crf: 23
+    }
+  }));
+}
+
+// 示例：监听文件选择
+const fileInput = document.getElementById('fileInput');
+fileInput.addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (file) {
+    initUpload(file);
+  }
+});
+```
+
+这个示例展示了：
+1. 如何初始化上传并获取上传ID
+2. 如何分块上传文件并处理每块的上传
+3. 如何接收并显示上传进度更新
+4. 如何在上传完成后开始视频转换
+
+通过这种方式，你可以为用户提供完整的上传进度反馈，提升用户体验。
 
 ### Python API
 
@@ -133,6 +241,36 @@ start_server(host='0.0.0.0', port=8765)
 }
 ```
 
+#### 初始化上传
+
+```json
+{
+  "action": "upload",
+  "file_name": "video.mp4",
+  "file_size": 10485760
+}
+```
+
+#### 上传文件块
+
+```json
+{
+  "action": "upload_chunk",
+  "upload_id": "upload_123",
+  "chunk": "base64_encoded_chunk_data",
+  "offset": 0
+}
+```
+
+#### 上传完成
+
+```json
+{
+  "action": "upload_complete",
+  "upload_id": "upload_123"
+}
+```
+
 ### 服务器到客户端消息
 
 #### 进度更新
@@ -175,6 +313,40 @@ start_server(host='0.0.0.0', port=8765)
 {
   "type": "error",
   "message": "Error description"
+}
+```
+
+#### 上传初始化响应
+
+```json
+{
+  "type": "upload_init",
+  "upload_id": "upload_123",
+  "message": "Upload initialized successfully"
+}
+```
+
+#### 上传进度更新
+
+```json
+{
+  "type": "upload_progress",
+  "upload_id": "upload_123",
+  "progress": 45,
+  "uploaded": 4613734,
+  "total": 10485760
+}
+```
+
+#### 上传完成响应
+
+```json
+{
+  "type": "upload_complete",
+  "upload_id": "upload_123",
+  "file_path": "/path/to/uploads/video.mp4",
+  "file_name": "video.mp4",
+  "message": "File uploaded successfully"
 }
 ```
 
