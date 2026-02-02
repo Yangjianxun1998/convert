@@ -1,0 +1,46 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["video2mp4"]
+
+[tool.setuptools.exclude-package-data]
+video2mp4 = ["__pycache__/*"]
+
+[tool.setuptools.package-data]
+video2mp4 = []
+
+[project]
+name = "video2mp4"
+version = "0.1.0"
+description = "Convert various video formats to MP4 with WebSocket progress updates"
+readme = "README.md"
+authors = [
+    { name = "Video Converter Team", email = "contact@videoconverter.com" }
+]
+license = { file = "LICENSE" }
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Topic :: Multimedia :: Video :: Conversion",
+    "Intended Audience :: Developers",
+    "Intended Audience :: End Users/Desktop"
+]
+requires-python = ">=3.7"
+dependencies = [
+    "websockets>=10.0"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "black>=22.0",
+    "isort>=5.0",
+    "flake8>=4.0"
+]
+
+[project.scripts]
+video2mp4 = "video2mp4.cli:main"
+video2mp4-server = "video2mp4.websocket_server:start_server"

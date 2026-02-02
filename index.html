@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>视频格式转换工具</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+            color: #333;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        
+        h1 {
+            text-align: center;
+            color: #4a6fa5;
+            margin-bottom: 30px;
+        }
+        
+        .section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            background-color: #f9f9f9;
+        }
+        
+        .section h2 {
+            color: #4a6fa5;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        
+        input[type="file"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: #fff;
+        }
+        
+        select, input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: #fff;
+        }
+        
+        .button-group {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+        }
+        
+        button {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            transition: background-color 0.3s;
+        }
+        
+        button.primary {
+            background-color: #4a6fa5;
+            color: white;
+        }
+        
+        button.primary:hover {
+            background-color: #3a5a85;
+        }
+        
+        button.secondary {
+            background-color: #6c757d;
+            color: white;
+        }
+        
+        button.secondary:hover {
+            background-color: #5a6268;
+        }
+        
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .status {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        
+        .status.success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .status.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .status.info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        
+        .progress-container {
+            margin-top: 15px;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background-color: #e0e0e0;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 10px;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background-color: #4a6fa5;
+            border-radius: 10px;
+            transition: width 0.3s ease;
+        }
+        
+        .progress-text {
+            text-align: center;
+            font-weight: bold;
+            color: #555;
+        }
+        
+        .logs {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: #f5f5f5;
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        
+        .log-entry {
+            margin-bottom: 5px;
+        }
+        
+        .log-entry.error {
+            color: #dc3545;
+        }
+        
+        .log-entry.success {
+            color: #28a745;
+        }
+        
+        .log-entry.info {
+            color: #17a2b8;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>视频格式转换工具</h1>
+        
+        <!-- 连接状态 -->
+        <div class="section">
+            <h2>连接状态</h2>
+            <div class="form-group">
+                <label>WebSocket服务器地址</label>
+                <input type="text" id="serverUrl" value="ws://localhost:8765" placeholder="ws://localhost:8765">
+            </div>
+            <div class="button-group">
+                <button id="connectBtn" class="primary">连接服务器</button>
+                <button id="checkFfmpegBtn" class="secondary">检查FFmpeg</button>
+            </div>
+            <div id="connectionStatus" class="status info">未连接</div>
+        </div>
+        
+        <!-- 文件选择 -->
+        <div class="section">
+            <h2>文件选择</h2>
+            <div class="form-group">
+                <label>输入视频文件</label>
+                <input type="file" id="inputFile" accept="video/*">
+                <small style="color: #666; display: block; margin-top: 5px;">请选择要转换的视频文件，系统会自动上传并转换</small>
+            </div>
+            <div class="form-group">
+                <label>输出文件名</label>
+                <input type="text" id="outputFile" placeholder="output.mp4">
+            </div>
+            <!-- 上传进度 -->
+            <div class="progress-container" style="display: none;">
+                <div class="progress-bar">
+                    <div class="upload-progress-fill" style="width: 0%;"></div>
+                </div>
+                <div class="progress-text">上传中... 0%</div>
+            </div>
+        </div>
+        
+        <!-- 转换参数 -->
+        <div class="section">
+            <h2>转换参数</h2>
+            <div class="form-group">
+                <label>编码预设</label>
+                <select id="preset">
+                    <option value="ultrafast">ultrafast</option>
+                    <option value="superfast">superfast</option>
+                    <option value="veryfast">veryfast</option>
+                    <option value="faster">faster</option>
+                    <option value="fast">fast</option>
+                    <option value="medium" selected>medium</option>
+                    <option value="slow">slow</option>
+                    <option value="slower">slower</option>
+                    <option value="veryslow">veryslow</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>视频质量 (CRF)</label>
+                <input type="text" id="crf" value="23" placeholder="23">
+            </div>
+            <div class="form-group">
+                <label>分辨率</label>
+                <input type="text" id="resolution" placeholder="1920x1080 (留空使用原始分辨率)">
+            </div>
+        </div>
+        
+        <!-- 转换控制 -->
+        <div class="section">
+            <h2>转换控制</h2>
+            <div class="button-group">
+                <button id="convertBtn" class="primary" disabled>开始转换</button>
+                <button id="cancelBtn" class="secondary" disabled>取消转换</button>
+            </div>
+            
+            <!-- 进度显示 -->
+            <div class="progress-container" style="display: none;">
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: 0%;"></div>
+                </div>
+                <div class="progress-text">0%</div>
+            </div>
+            
+            <!-- 转换状态 -->
+            <div id="conversionStatus" class="status info" style="display: none;"></div>
+        </div>
+        
+        <!-- 日志 -->
+        <div class="section">
+            <h2>日志</h2>
+            <div id="logs" class="logs"></div>
+        </div>
+    </div>
+    
+    <script>
+        // 全局变量
+        let ws = null;
+        let taskId = null;
+        let isConnected = false;
+        let isConverting = false;
+        
+        // 高效的ArrayBuffer转base64函数，避免apply参数过多导致栈溢出
+        function arrayBufferToBase64(buffer) {
+            const bytes = new Uint8Array(buffer);
+            const len = bytes.length;
+            const chars = [];
+            const b64chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+            
+            for (let i = 0; i < len; i += 3) {
+                const a = bytes[i];
+                const b = bytes[i + 1] || 0;
+                const c = bytes[i + 2] || 0;
+                
+                chars.push(b64chars[a >> 2]);
+                chars.push(b64chars[((a & 3) << 4) | (b >> 4)]);
+                chars.push(b64chars[((b & 15) << 2) | (c >> 6)]);
+                chars.push(b64chars[c & 63]);
+            }
+            
+            // 处理填充
+            const padLen = len % 3;
+            if (padLen) {
+                chars.length -= 3 - padLen;
+                chars.push(...'='.repeat(3 - padLen));
+            }
+            
+            return chars.join('');
+        }
+        
+        // DOM元素
+        const serverUrlInput = document.getElementById('serverUrl');
+        const connectBtn = document.getElementById('connectBtn');
+        const checkFfmpegBtn = document.getElementById('checkFfmpegBtn');
+        const connectionStatus = document.getElementById('connectionStatus');
+        const inputFile = document.getElementById('inputFile');
+        const outputFile = document.getElementById('outputFile');
+        const presetSelect = document.getElementById('preset');
+        const crfInput = document.getElementById('crf');
+        const resolutionInput = document.getElementById('resolution');
+        const convertBtn = document.getElementById('convertBtn');
+        const cancelBtn = document.getElementById('cancelBtn');
+        const progressContainer = document.querySelector('.progress-container');
+        const progressFill = document.querySelector('.progress-fill');
+        const progressText = document.querySelector('.progress-text');
+        const conversionStatus = document.getElementById('conversionStatus');
+        const logs = document.getElementById('logs');
+        const uploadProgressContainer = document.querySelectorAll('.progress-container')[1];
+        const uploadProgressFill = document.querySelector('.upload-progress-fill');
+        const uploadProgressText = uploadProgressContainer.querySelector('.progress-text');
+        
+        // 存储上传后的文件路径
+        let uploadedFilePath = null;
+        let currentUploadId = null;
+        
+        // 日志函数
+        function addLog(message, type = 'info') {
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-entry ${type}`;
+            logEntry.textContent = `${new Date().toLocaleTimeString()}: ${message}`;
+            logs.appendChild(logEntry);
+            logs.scrollTop = logs.scrollHeight;
+        }
+        
+        // 更新连接状态
+        function updateConnectionStatus(status, isConnectedFlag) {
+            isConnected = isConnectedFlag;
+            connectionStatus.textContent = status;
+            connectionStatus.className = `status ${isConnectedFlag ? 'success' : 'error'}`;
+            
+            if (isConnectedFlag) {
+                connectBtn.textContent = '断开连接';
+                convertBtn.disabled = false;
+                checkFfmpegBtn.disabled = false;
+                addLog('成功连接到WebSocket服务器', 'success');
+            } else {
+                connectBtn.textContent = '连接服务器';
+                convertBtn.disabled = true;
+                checkFfmpegBtn.disabled = true;
+                addLog('已断开与WebSocket服务器的连接', 'info');
+            }
+        }
+        
+        // 连接WebSocket服务器
+        function connectToServer() {
+            if (isConnected) {
+                // 断开连接
+                if (ws) {
+                    ws.close();
+                    ws = null;
+                }
+                updateConnectionStatus('未连接', false);
+                return;
+            }
+            
+            const url = serverUrlInput.value;
+            addLog(`尝试连接到服务器: ${url}`, 'info');
+            
+            try {
+                ws = new WebSocket(url);
+                
+                ws.onopen = function() {
+                    updateConnectionStatus('已连接', true);
+                };
+                
+                ws.onmessage = function(event) {
+                    handleWebSocketMessage(event.data);
+                };
+                
+                ws.onclose = function() {
+                    updateConnectionStatus('未连接', false);
+                };
+                
+                ws.onerror = function(error) {
+                    addLog(`连接错误: ${error}`, 'error');
+                    updateConnectionStatus('连接错误', false);
+                };
+            } catch (error) {
+                addLog(`连接失败: ${error}`, 'error');
+                updateConnectionStatus('连接失败', false);
+            }
+        }
+        
+        // 处理WebSocket消息
+        function handleWebSocketMessage(data) {
+            try {
+                const message = JSON.parse(data);
+                addLog(`收到消息: ${JSON.stringify(message)}`, 'info');
+                
+                switch (message.type) {
+                    case 'ffmpeg_check':
+                        handleFfmpegCheck(message);
+                        break;
+                    case 'task_started':
+                        handleTaskStarted(message);
+                        break;
+                    case 'progress':
+                        handleProgressUpdate(message);
+                        break;
+                    case 'upload_init':
+                        handleUploadInit(message);
+                        break;
+                    case 'upload_progress':
+                        handleUploadProgress(message);
+                        break;
+                    case 'upload_complete':
+                        handleUploadComplete(message);
+                        break;
+                    case 'error':
+                        handleError(message);
+                        break;
+                    default:
+                        addLog(`未知消息类型: ${message.type}`, 'info');
+                }
+            } catch (error) {
+                addLog(`解析消息失败: ${error}`, 'error');
+            }
+        }
+        
+        // 处理FFmpeg检查结果
+        function handleFfmpegCheck(message) {
+            const status = message.available ? 'success' : 'error';
+            addLog(`FFmpeg检查结果: ${message.message}`, status);
+            
+            if (message.available) {
+                convertBtn.disabled = false;
+            } else {
+                convertBtn.disabled = true;
+            }
+        }
+        
+        // 处理任务开始
+        function handleTaskStarted(message) {
+            taskId = message.task_id;
+            isConverting = true;
+            convertBtn.disabled = true;
+            cancelBtn.disabled = false;
+            progressContainer.style.display = 'block';
+            conversionStatus.style.display = 'block';
+            conversionStatus.className = 'status info';
+            conversionStatus.textContent = '转换中...';
+            addLog(`转换任务已开始，任务ID: ${taskId}`, 'success');
+        }
+        
+        // 处理进度更新
+        function handleProgressUpdate(message) {
+            if (message.status === 'progress') {
+                const progress = message.progress || 0;
+                progressFill.style.width = `${progress}%`;
+                progressText.textContent = `${progress}%`;
+                conversionStatus.textContent = `转换中... ${progress}%`;
+            } else if (message.status === 'completed') {
+                isConverting = false;
+                convertBtn.disabled = false;
+                cancelBtn.disabled = true;
+                progressFill.style.width = '100%';
+                progressText.textContent = '100%';
+                
+                // 生成下载链接
+                const outputFile = message.output;
+                const fileName = outputFile.split('\\').pop();
+                
+                // 创建下载按钮
+                const downloadLink = document.createElement('a');
+                downloadLink.href = `/${fileName}`;
+                downloadLink.textContent = '下载转换后的文件';
+                downloadLink.className = 'primary';
+                downloadLink.style.display = 'inline-block';
+                downloadLink.style.marginTop = '10px';
+                downloadLink.style.padding = '10px 15px';
+                downloadLink.style.backgroundColor = '#4a6fa5';
+                downloadLink.style.color = 'white';
+                downloadLink.style.textDecoration = 'none';
+                downloadLink.style.borderRadius = '4px';
+                downloadLink.style.fontWeight = 'bold';
+                
+                // 显示转换完成信息和下载链接
+                conversionStatus.className = 'status success';
+                conversionStatus.innerHTML = `转换完成！输出文件: ${fileName}<br>`;
+                conversionStatus.appendChild(downloadLink);
+                
+                addLog(`转换完成！输出文件: ${outputFile}`, 'success');
+                addLog(`生成下载链接: ${fileName}`, 'info');
+            } else if (message.status === 'error') {
+                isConverting = false;
+                convertBtn.disabled = false;
+                cancelBtn.disabled = true;
+                conversionStatus.className = 'status error';
+                conversionStatus.textContent = `转换失败: ${message.message}`;
+                addLog(`转换失败: ${message.message}`, 'error');
+            }
+        }
+        
+        // 处理错误消息
+        function handleError(message) {
+            addLog(`错误: ${message.message}`, 'error');
+            if (isConverting) {
+                isConverting = false;
+                convertBtn.disabled = false;
+                cancelBtn.disabled = true;
+            }
+        }
+        
+        // 处理上传初始化
+        function handleUploadInit(message) {
+            currentUploadId = message.upload_id;
+            addLog(`上传初始化成功，上传ID: ${currentUploadId}`, 'success');
+        }
+        
+        // 处理上传进度
+        function handleUploadProgress(message) {
+            const progress = message.progress || 0;
+            uploadProgressFill.style.width = `${progress}%`;
+            uploadProgressText.textContent = `上传中... ${progress}%`;
+            addLog(`上传进度: ${progress}%`, 'info');
+        }
+        
+        // 处理上传完成
+        function handleUploadComplete(message) {
+            uploadedFilePath = message.file_path;
+            addLog(`文件上传完成: ${message.file_name}`, 'success');
+            addLog(`文件路径: ${message.file_path}`, 'info');
+            uploadProgressContainer.style.display = 'none';
+        }
+        
+        // 检查FFmpeg
+        function checkFfmpeg() {
+            if (!isConnected || !ws) {
+                addLog('请先连接到WebSocket服务器', 'error');
+                return;
+            }
+            
+            addLog('正在检查FFmpeg...', 'info');
+            ws.send(JSON.stringify({ action: 'check_ffmpeg' }));
+        }
+        
+        // 上传文件（使用WebSocket）
+        function uploadFile(file) {
+            return new Promise((resolve, reject) => {
+                addLog(`开始上传文件: ${file.name}`, 'info');
+                
+                // 显示上传进度
+                uploadProgressContainer.style.display = 'block';
+                uploadProgressFill.style.width = '0%';
+                uploadProgressText.textContent = '上传中... 0%';
+                
+                // 初始化上传
+                const initMessage = {
+                    action: 'upload',
+                    file_name: file.name,
+                    file_size: file.size
+                };
+                
+                ws.send(JSON.stringify(initMessage));
+                
+                // 等待上传初始化响应的定时器
+                const initTimeout = setTimeout(() => {
+                    addLog('上传初始化超时', 'error');
+                    uploadProgressContainer.style.display = 'none';
+                    reject(new Error('Upload initialization timeout'));
+                }, 5000);
+                
+                // 上传完成标志
+                let uploadCompleted = false;
+                
+                // 监听上传完成
+                const originalHandleUploadComplete = window.handleUploadComplete;
+                window.handleUploadComplete = function(message) {
+                    clearTimeout(initTimeout);
+                    uploadCompleted = true;
+                    originalHandleUploadComplete(message);
+                    resolve(message.file_path);
+                };
+                
+                // 监听错误
+                const originalHandleError = window.handleError;
+                window.handleError = function(message) {
+                    if (!uploadCompleted && message.message.includes('upload')) {
+                        clearTimeout(initTimeout);
+                        uploadProgressContainer.style.display = 'none';
+                        reject(new Error(message.message));
+                    }
+                    originalHandleError(message);
+                };
+                
+                // 开始分块上传
+                const CHUNK_SIZE = 128 * 1024; // 128KB 分块（减小分块大小，避免WebSocket消息过大）
+                let offset = 0;
+                
+                function uploadNextChunk() {
+                    if (offset >= file.size) {
+                        // 上传完成
+                        const completeMessage = {
+                            action: 'upload_complete',
+                            upload_id: currentUploadId
+                        };
+                        ws.send(JSON.stringify(completeMessage));
+                        return;
+                    }
+                    
+                    // 计算当前分块大小
+                    const chunkSize = Math.min(CHUNK_SIZE, file.size - offset);
+                    const chunk = file.slice(offset, offset + chunkSize);
+                    
+                    // 读取分块并发送
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        const chunkData = e.target.result;
+                        // 转换为base64（使用更高效的方法，避免apply参数过多导致栈溢出）
+                        const base64Chunk = arrayBufferToBase64(chunkData);
+                        
+                        // 发送分块
+                        const chunkMessage = {
+                            action: 'upload_chunk',
+                            upload_id: currentUploadId,
+                            chunk: base64Chunk,
+                            offset: offset
+                        };
+                        
+                        ws.send(JSON.stringify(chunkMessage));
+                        
+                        // 移动到下一个分块
+                        offset += chunkSize;
+                        // 使用setTimeout避免递归调用栈溢出
+                        setTimeout(uploadNextChunk, 0);
+                    };
+                    
+                    reader.onerror = function() {
+                        clearTimeout(initTimeout);
+                        addLog('文件读取失败', 'error');
+                        uploadProgressContainer.style.display = 'none';
+                        reject(new Error('File read error'));
+                    };
+                    
+                    reader.readAsArrayBuffer(chunk);
+                }
+                
+                // 等待上传ID后开始分块上传
+                setTimeout(() => {
+                    if (currentUploadId) {
+                        uploadNextChunk();
+                    }
+                }, 1000);
+            });
+        }
+        
+        // 开始转换
+        async function startConversion() {
+            if (!isConnected || !ws) {
+                addLog('请先连接到WebSocket服务器', 'error');
+                return;
+            }
+            
+            const file = inputFile.files[0];
+            if (!file) {
+                addLog('请选择输入视频文件', 'error');
+                return;
+            }
+            
+            let outputFilePath = outputFile.value;
+            if (!outputFilePath) {
+                // 从输入文件名生成输出文件名
+                const baseName = file.name.split('.').slice(0, -1).join('.');
+                outputFilePath = `${baseName}.mp4`;
+                outputFile.value = outputFilePath;
+            }
+            
+            try {
+                // 上传文件
+                uploadedFilePath = await uploadFile(file);
+                
+                // 构建转换参数
+                const options = {
+                    preset: presetSelect.value,
+                    crf: parseInt(crfInput.value) || 23
+                };
+                
+                if (resolutionInput.value) {
+                    options.resolution = resolutionInput.value;
+                }
+                
+                // 发送转换请求
+                const request = {
+                    action: 'convert',
+                    input_file: uploadedFilePath,
+                    output_file: outputFilePath,
+                    options: options
+                };
+                
+                addLog(`开始转换: ${file.name} -> ${outputFilePath}`, 'info');
+                addLog(`转换参数: ${JSON.stringify(options)}`, 'info');
+                
+                ws.send(JSON.stringify(request));
+            } catch (error) {
+                addLog(`转换失败: ${error.message}`, 'error');
+            }
+        }
+        
+        // 取消转换
+        function cancelConversion() {
+            if (!isConnected || !ws || !taskId) {
+                addLog('没有正在进行的转换任务', 'error');
+                return;
+            }
+            
+            const request = {
+                action: 'cancel',
+                task_id: taskId
+            };
+            
+            addLog(`取消转换任务: ${taskId}`, 'info');
+            ws.send(JSON.stringify(request));
+            
+            isConverting = false;
+            convertBtn.disabled = false;
+            cancelBtn.disabled = true;
+        }
+        
+        // 事件监听器
+        connectBtn.addEventListener('click', connectToServer);
+        checkFfmpegBtn.addEventListener('click', checkFfmpeg);
+        convertBtn.addEventListener('click', startConversion);
+        cancelBtn.addEventListener('click', cancelConversion);
+        
+        // 初始化
+        addLog('视频格式转换工具已加载', 'info');
+        addLog('请先连接到WebSocket服务器，然后选择视频文件进行转换', 'info');
+    </script>
+</body>
+</html>
